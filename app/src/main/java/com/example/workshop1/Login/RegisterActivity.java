@@ -16,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.workshop1.R;
 import com.example.workshop1.SQLite.Mysqliteopenhelper;
 import com.example.workshop1.SQLite.User;
+import com.example.workshop1.Utils.PasswordEncryption;
 
 import java.util.Random;
 
@@ -87,7 +88,7 @@ public class RegisterActivity extends AppCompatActivity {
         String inputCode = et_verifyCode.getText().toString().trim();
         if (inputCode.equals(sentCode)) {
             return true;
-            // 可以跳转回注册页面，或者设置一个“认证通过”的标志
+            // 可以跳转回注册页面，或者设置一个"认证通过"的标志
         }
         return false;
     }
@@ -113,7 +114,6 @@ public class RegisterActivity extends AppCompatActivity {
 
         // 先检查密码格式是否合规
         if (!isPasswordValid(pwd)) {
-            // Toast.makeText(this, "Password invalid!", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -127,7 +127,14 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
 
-        User user = new User(name, pwd, "", "student");
+        // 加密密码
+        String encryptedPassword = PasswordEncryption.encrypt(pwd);
+        if (encryptedPassword == null) {
+            Toast.makeText(this, "Password encryption failed", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        User user = new User(name, encryptedPassword, "", "student");
         long res = mysqliteopenhelper.addUser(user);
         if (res != -1) {
             Toast.makeText(this, "Registration successful!", Toast.LENGTH_SHORT).show();

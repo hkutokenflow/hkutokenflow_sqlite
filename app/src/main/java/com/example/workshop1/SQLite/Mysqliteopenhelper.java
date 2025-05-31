@@ -9,6 +9,8 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
+import com.example.workshop1.Utils.PasswordEncryption;
+
 public class Mysqliteopenhelper extends SQLiteOpenHelper {
 
     private static final String DBNAME="Mydb";
@@ -17,7 +19,7 @@ public class Mysqliteopenhelper extends SQLiteOpenHelper {
 //        super(context, DBNAME, null, 1);
 //    }
     public Mysqliteopenhelper(@Nullable Context context) {
-        super(context, DBNAME, null, 9);
+        super(context, DBNAME, null, 12);
     }
 
     @Override
@@ -63,8 +65,13 @@ public class Mysqliteopenhelper extends SQLiteOpenHelper {
                 "name varchar(255), approved INTEGER DEFAULT 0)";
         db.execSQL(createVendorApproval);
 
-        // Create admin account
-        String addAdmin = "INSERT INTO Users VALUES(1, 'admin', 'admin123','HKU TokenFlow Admin', 'admin', 0)";
+        // Create admin account with encrypted password
+        String adminPassword = PasswordEncryption.encrypt("admin123");
+        if (adminPassword == null) {
+            Log.e("SQL", "Failed to encrypt admin password");
+            adminPassword = ""; // 如果加密失败，使用空密码，但这种情况不应该发生
+        }
+        String addAdmin = "INSERT INTO Users VALUES(1, 'admin', '" + adminPassword + "','HKU TokenFlow Admin', 'admin', 0)";
         db.execSQL(addAdmin);
 
         // accounts for testing
@@ -130,17 +137,16 @@ public class Mysqliteopenhelper extends SQLiteOpenHelper {
     // login
     public User login(String name, String password){
         SQLiteDatabase db1 = getWritableDatabase();
-        Cursor users = db1.query("Users",null,"username like?", new String[]{name},null,null,null);
-        if (users!=null && users.moveToNext()) {
-            String dbpwd = users.getString(2);
-            if (password.equals(dbpwd)) {
-                String username = users.getString(1);
-                String uname = users.getString(3);
-                String type = users.getString(4);
-                int balance = users.getInt(5);
+        Cursor users = db1.query("Users", null, "username like?", new String[]{name}, null, null, null);
+        if (users != null && users.moveToNext()) {
+            String dbpwd = users.getString(2);  // 获取加密后的密码
+            String username = users.getString(1);
+            String uname = users.getString(3);
+            String type = users.getString(4);
+            int balance = users.getInt(5);
 
-                return new User(username, dbpwd, uname, type, balance);
-            }
+            // 返回用户对象，密码验证将在 LoginActivity 中进行
+            return new User(username, dbpwd, uname, type, balance);
         }
         return null;  // unsuccessful login
     }
@@ -567,6 +573,46 @@ public class Mysqliteopenhelper extends SQLiteOpenHelper {
             cursor.close();
         }
         return exists;
+    }
+
+    // Check approval status of a username
+    // Returns: 
+    // -1: No approval record found (can register)
+    // 0: Pending approval (cannot register)
+    // 1: Approved (cannot register)
+    // 2: Refused (can register)
+    public int checkApprovalStatus(String username) {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query("VendorApproval", 
+            new String[]{"approved"}, 
+            "username = ?", 
+            new String[]{username}, 
+            null, null, null);
+        
+        if (cursor != null && cursor.moveToFirst()) {
+            int status = cursor.getInt(0);
+            cursor.close();
+            return status;
+        }
+        
+        if (cursor != null) {
+            cursor.close();
+        }
+        return -1; // No approval record found
+    }
+
+    // Check if username can be registered
+    // Returns true if username can be registered (not in Users table and either no approval record or refused)
+    public boolean canRegister(String username) {
+        // First check if username exists in Users table
+        if (checkUserExists(username)) {
+            return false;
+        }
+        
+        // Then check approval status
+        int approvalStatus = checkApprovalStatus(username);
+        // Can register if no approval record (-1) or refused (2)
+        return approvalStatus == -1 || approvalStatus == 2;
     }
 
 }

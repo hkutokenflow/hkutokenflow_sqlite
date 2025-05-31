@@ -15,12 +15,13 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.workshop1.R;
 import com.example.workshop1.SQLite.Mysqliteopenhelper;
 import com.example.workshop1.SQLite.VendorApproval;
+import com.example.workshop1.Utils.PasswordEncryption;
 
 import java.util.Random;
 
 public class VendorRegisterActivity extends AppCompatActivity {
 
-    private EditText et_name, et_pwd, et_equal, et_verifyCode;
+    private EditText et_username, et_name, et_pwd, et_equal, et_verifyCode;
     private ImageView iv_eye2, iv_eye3, iv_showCode;
     private CheckBox cb_accept;
     private Mysqliteopenhelper mysqliteopenhelper;
@@ -32,7 +33,8 @@ public class VendorRegisterActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_vendor_register);
         
-        et_name = findViewById(R.id.et_register_username);
+        et_username = findViewById(R.id.et_register_username);
+        et_name = findViewById(R.id.et_register_name);
         et_pwd = findViewById(R.id.et_register_password);
         et_equal = findViewById(R.id.et_equal_password);
         et_verifyCode = findViewById(R.id.et_verify_code);
@@ -95,13 +97,19 @@ public class VendorRegisterActivity extends AppCompatActivity {
     }
 
     public void register_newuser(View view) {
+        String username = et_username.getText().toString().trim();
         String name = et_name.getText().toString().trim();
         String pwd = et_pwd.getText().toString();
         String equal = et_equal.getText().toString();
         String inputCode = et_verifyCode.getText().toString().toLowerCase();
 
+        if (username.isEmpty()) {
+            Toast.makeText(this, "Please enter your username", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         if (name.isEmpty()) {
-            Toast.makeText(this, "Please enter your name", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Please enter your store name", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -124,11 +132,21 @@ public class VendorRegisterActivity extends AppCompatActivity {
             return;
         }
 
-        // 生成用户名，使用用户输入的密码
-        String username = generateUniqueUsername(name);
+        // 检查用户名是否已存在
+        if (mysqliteopenhelper.checkUserExists(username)) {
+            Toast.makeText(this, "Username already exists", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-        // 创建vendor审批申请，使用用户输入的密码
-        VendorApproval vendorApproval = new VendorApproval(username, pwd, name);
+        // 加密密码
+        String encryptedPassword = PasswordEncryption.encrypt(pwd);
+        if (encryptedPassword == null) {
+            Toast.makeText(this, "Password encryption failed", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 创建vendor审批申请，使用加密后的密码
+        VendorApproval vendorApproval = new VendorApproval(username, encryptedPassword, name);
         long res = mysqliteopenhelper.addVendorApproval(vendorApproval);
         
         if (res != -1) {

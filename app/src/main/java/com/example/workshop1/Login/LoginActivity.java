@@ -22,6 +22,7 @@ import com.example.workshop1.R;
 import com.example.workshop1.SQLite.Mysqliteopenhelper;
 import com.example.workshop1.SQLite.User;
 import com.example.workshop1.Student.StudentActivity;
+import com.example.workshop1.Utils.PasswordEncryption;
 import com.example.workshop1.Vendor.VendorActivity;
 
 public class LoginActivity extends AppCompatActivity {
@@ -96,32 +97,36 @@ public class LoginActivity extends AppCompatActivity {
 
     // login button listener
     public void jumptoMainActivity(View view){
-        account=et_name.getText().toString();
-        password=et_password.getText().toString();
+        account = et_name.getText().toString();
+        password = et_password.getText().toString();
 
         //登陆按钮监听，验证码是否正确
         String phoneCode = et_phoneCode.getText().toString().toLowerCase();//大小写都行
         if (phoneCode.equals(realCode)) {
-            // Toast.makeText(this, phoneCode + "Verification Code CORRECT", Toast.LENGTH_SHORT).show();
-
-            //验证码正确之后再尝试登陆
-            User login_success = mysqliteopenhelper.login(account,password);
+            // 验证码正确之后再尝试登陆
+            User login_success = mysqliteopenhelper.login(account, password);
             if(login_success != null){
+                // 验证密码
+                if (!PasswordEncryption.verifyPassword(password, login_success.getPassword())) {
+                    Toast.makeText(this, "Incorrect password", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
                 //读取数据
-                editor=pref.edit();
+                editor = pref.edit();
                 if(remeberPass.isChecked()){
-                    editor.putBoolean("remember_password",true);
-                    editor.putString("account",account);
-                    editor.putString("password",password);
+                    editor.putBoolean("remember_password", true);
+                    editor.putString("account", account);
+                    // 不要存储明文密码
+                    editor.putString("password", "");
                 }
                 else{
-                    editor.putBoolean("remember_password",false);
+                    editor.putBoolean("remember_password", false);
                     editor.clear();
                 }
                 editor.apply();
 
-                Toast.makeText(this,"Login successful",Toast.LENGTH_SHORT).show();
-
+                Toast.makeText(this, "Login successful", Toast.LENGTH_SHORT).show();
 
                 // -----------------------Jump to right activity----------------------
                 String type = login_success.getType();
@@ -146,15 +151,13 @@ public class LoginActivity extends AppCompatActivity {
 
                 intent.putExtra("userObj", login_success);
                 startActivity(intent);  // 登陆成功，跳转到对应的 Activity
-
             }
             else{
-                Toast.makeText(this,"Incorrect email or password.",Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Incorrect username or password", Toast.LENGTH_SHORT).show();
             }
         } else {
             Toast.makeText(this, "Verification code error!", Toast.LENGTH_SHORT).show();
         }
-
     }
 
     //监听注册按钮
